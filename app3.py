@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import sqlite3, hashlib, io
+import sqlite3, hashlib, io, json
 from datetime import datetime, timedelta
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -50,13 +50,13 @@ def login_user(username, password):
     return None
 
 # ====================== PDF EXPORT ======================
-def generate_pdf(df, title="College Timetable"):
+def generate_pdf(df):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
 
     p.setFont("Helvetica-Bold", 14)
-    p.drawString(200, height - 40, title)
+    p.drawString(200, height - 40, "College Timetable")
 
     p.setFont("Helvetica", 8)
     x_offset, y_offset = 40, height - 80
@@ -160,8 +160,6 @@ elif st.session_state.page == "Generate":
     govt_holidays = st.multiselect("Government Holidays",
                                    pd.date_range(start_date, end_date).strftime("%d-%m-%Y"))
 
-    timetable_name = st.text_input("📌 Enter a name for this timetable", value="My Timetable")
-
     if st.button("Generate"):
         ref_table = st.session_state.timetable
         cycle_days = ref_table["Cycle Day"].tolist()
@@ -227,18 +225,18 @@ elif st.session_state.page == "Generate":
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name="Timetable")
         buffer.seek(0)
-        st.download_button("📥 Download Excel", data=buffer, file_name=f"{timetable_name}.xlsx")
+        st.download_button("📥 Download Excel", data=buffer, file_name="Dynamic_Timetable.xlsx")
 
         # PDF download
-        pdf_buffer = generate_pdf(df, timetable_name)
-        st.download_button("📄 Download PDF", data=pdf_buffer, file_name=f"{timetable_name}.pdf")
+        pdf_buffer = generate_pdf(df)
+        st.download_button("📄 Download PDF", data=pdf_buffer, file_name="Dynamic_Timetable.pdf")
 
         # Save to DB
-        if st.button("💾 Save to Database"):
+        if st.button("Save to Database"):
             c.execute("INSERT INTO timetables (user_id, name, data) VALUES (?, ?, ?)",
-                      (st.session_state.user[0], timetable_name, df.to_json()))
+                      (st.session_state.user[0], "My Timetable", df.to_json()))
             conn.commit()
-            st.success(f"Timetable '{timetable_name}' saved to database!")
+            st.success("Saved to database!")
             st.session_state.page = "Manage"
             st.rerun()
 
@@ -264,4 +262,4 @@ elif st.session_state.page == "Manage":
                 if st.button(f"Delete {r[0]}"):
                     c.execute("DELETE FROM timetables WHERE id=?", (r[0],))
                     conn.commit()
-                    st.warning(f"Timetable '{r[1]}' deleted.")
+                    st.warning("Deleted.")
